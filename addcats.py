@@ -28,8 +28,6 @@ import linuxutils
 ###
 # This project only.
 ###
-from facultydata import departments
-from shellcommands import *
 
 ###
 # Credits
@@ -157,5 +155,3 @@ if __name__ == '__main__':
 
     except Exception as e:
         print(f"Unhandled exception {e}")
-
-
