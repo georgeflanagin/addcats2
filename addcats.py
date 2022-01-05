@@ -45,7 +45,9 @@ __license__ = 'MIT'
 def read_whitespace_file(filename:str) -> tuple:
     with open(filename) as f:
         data = f.read()
-    return tuple(" ".join(data.split('\n')).split())
+    data = (" ".join(data.split('\n'))).split()
+    for _ in data:
+        yield _
     
     
 
@@ -62,7 +64,7 @@ def addcats_main(myargs:argparse.Namespace) -> int:
     # appended).
     
     dollar_group = f"{myargs.faculty}$"
-    if not linux_utils.group_exists(myargs.faculty):
+    if not linuxutils.group_exists(myargs.faculty):
         print(add_group(myargs.faculty))
         print(add_group(dollar_group))
 
@@ -71,16 +73,15 @@ def addcats_main(myargs:argparse.Namespace) -> int:
     print(add_user_to_group(myargs.faculty, dollar_group))
     print(add_user_to_group(myargs.faculty, 'faculty'))
     for g in myargs.group:
-        if not linux_utils.group_exists(g):
-            add_group(g)
-        add_user_to_group(myargs.faculty, g)
+        if not linuxutils.group_exists(g):
+            print(add_group(g))
+        print(add_user_to_group(myargs.faculty, g))
 
-    netids = whitespace_file(myargs.input)
-    for netid in whitespace_file(myargs.input):
-        add_user_to_group(netid, 'student')
-        add_user_to_group(netid, dollar_group)
+    for netid in read_whitespace_file(myargs.input):
+        print(add_user_to_group(netid, 'student'))
+        print(add_user_to_group(netid, dollar_group))
         for g in myargs.group:
-            add_user_to_group(netid, g)
+            print(add_user_to_group(netid, g))
 
     return os.EX_OK
 
@@ -92,7 +93,7 @@ if __name__ == '__main__':
 
     parser.add_argument('-f', '--faculty', type=str, required=True,
         help="Name of a faculty member.")
-    parser.add_argument('-g', '--group', action='append',
+    parser.add_argument('-g', '--group', action='append', default=[],
         help="Name of additional groups to add to the users.")
     parser.add_argument('-i', '--input', type=str, default="",
         help="Input file name.")
@@ -104,7 +105,6 @@ if __name__ == '__main__':
 
     myargs = parser.parse_args()
     myargs.verbose and linuxutils.dump_cmdline(myargs)
-    if myargs.nice: os.nice(myargs.nice)
 
     try:
         vm_callable = "{}_main".format(os.path.basename(__file__)[:-3])
