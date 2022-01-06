@@ -24,6 +24,7 @@ import textwrap
 # From hpclib
 ###
 import linuxutils
+from   urdecorators import trap
 
 ###
 # This project only.
@@ -46,6 +47,7 @@ add_group            = lambda group : f"""sudo /usr/local/sbin/hpcgroupadd {grou
 add_user_to_group    = lambda user, group : f"""sudo /usr/local/sbin/hpcgpasswd -a {user} {group}"""
 drop_user_from_group = lambda user, group : f"""sudo /usr/local/sbin/hpcgpasswd -d {user} {group}"""
 manage               = lambda user : f"""sudo /usr/local/sbin/hpcmanage {user}"""
+associate            = lambda student, faculty : f"""sudo -u {student} ln -s /home/{faculty}/shared /home/{student}/shared_{faculty}"""
 
 def read_whitespace_file(filename:str) -> tuple:
     """
@@ -124,6 +126,7 @@ def addcats_main(myargs:argparse.Namespace) -> int:
     for netid in read_whitespace_file(myargs.input):
         print(add_user_to_group(netid, 'student'))
         print(add_user_to_group(netid, dollar_group))
+        print(associate(netid, myargs.faculty))
         for g in myargs.group:
             print(add_user_to_group(netid, g))
 
