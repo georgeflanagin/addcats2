@@ -18,7 +18,9 @@ if sys.version_info < min_py:
 ###
 import argparse
 import contextlib
+import getpass
 import textwrap
+import time
 
 ###
 # From hpclib
@@ -68,31 +70,60 @@ addcats_help="""
 
     Explanation:
 
-    The output file will default to stdout if it is not given. Otherwise,
-    the output of this program is written to whatever file you name. 
+    FACULTY -- There must be a named faculty member who is sponsoring
+    the netids for which accounts are being created. A faculty member
+    is effectively a self-sponsored user. The netids in the INPUT file will
+    be associated with this faculty member. The faculty member's account
+    will be created if it does not exist. All faculty are automatically
+    added to the faculty group and the managed group.
 
-    The input file should be a whitespace delimited file of netids. They
+    The INPUT file should be a whitespace delimited file of netids. They
     can be all on one line, or arbitrarily arranged by lines, including
     blank lines. Each of these netids is automatically added to the student 
     group and the managed group.
 
-    There must be a named faculty member who is sponsoring the netids for
-    which accounts are being created. The netids in the file will be associated
-    with this faculty member. The faculty member's account will be created
-    if it does not exist. All faculty are automatically added to the faculty
-    group and the managed group.
+    You can name one or more GROUPs of additional association. These groups
+    will be created if they do not exist, and the FACULTY sponsor as well
+    as all of the netids in the INPUT file will be added to the named
+    groups.
 
-    You can name one or more groups of additional association. These groups
-    will be created if they do not exist.
+    The OUTPUT "file" will default to stdout if it is not given. Otherwise,
+    the output of this program is written to whatever file you name. 
 
-    **NOTE** Repeatedly adding a user to a group does not create an error.
+                            **********
+                           *** NOTE *** 
+                            **********
 
-    Example:
+    Ordinary errors are forgiven. For example, repeatedly adding a user to 
+    a group does not create an error or a duplicate entry. Asking for a
+    group that already exists to be created is ignored. A student netid
+    may be associated with more than one faculty sponsor. The netids may
+    include faculty members; thus, co-teaching a class is supported.
+
+    An example:
+
+    Suppose saif.students contains 'aa1bb bb2cc gflanagi efhutton zz6yy'
 
     These two commands both write the result to newusers.sh:
 
-    python addcats.py -f smehkari -i saif.students -g econ -o newusers.sh
-    python addcats.py -f smehkari -i saif.students -g econ > newusers.sh
+        python addcats.py -f smehkari -i saif.students -g econ -g econ270 -o newusers.sh
+
+        python addcats.py -f smehkari -i saif.students -g econ -g econ270 > newusers.sh
+
+    smehkari and gflanagi already exist, and smehkari is already a member of 'econ'.
+    This is all perfectly OK and logically consistent with the model of use on
+    both spiderweb and spydur. 
+
+    - The econ270 group will be created.
+    - All the named parties will be added to it.
+    - gflanagi will be added to econ and econ270
+    - The new faculty member efhutton will be added to all the groups, and will have
+        a new account created.
+    - The student netids will will be added to the groups, have new accounts created,
+        and have a link to the shared directory belonging to smehkari, the faculty 
+        sponsor for this operation.
+
+    Sourcing the file "newusers.sh" will make it all happen.     
 
     """
 
@@ -124,6 +155,7 @@ def addcats_main(myargs:argparse.Namespace) -> int:
         print(add_user_to_group(myargs.faculty, g))
 
     for netid in read_whitespace_file(myargs.input):
+        print(manage(netid))
         print(add_user_to_group(netid, 'student'))
         print(add_user_to_group(netid, dollar_group))
         print(associate(netid, myargs.faculty))
@@ -135,8 +167,12 @@ def addcats_main(myargs:argparse.Namespace) -> int:
 
 if __name__ == '__main__':
     
+    if getpass.getuser() not in ('root', 'installer'):
+        sys.stderr.write('You must log in as "installer" to execute the output of this program!\n')
+        time.sleep(5)
+
     parser = argparse.ArgumentParser(prog="addcats", 
-        description="What addcats does, addcats does best.",
+        description="Create new accounts on Spydur!\nWhat addcats does, addcats does best.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=textwrap.dedent(addcats_help))
 
@@ -157,4 +193,4 @@ if __name__ == '__main__':
             sys.exit(globals()[f"{os.path.basename(__file__)[:-3]}_main"](myargs))
 
     except Exception as e:
-        print(f"Unhandled exception {e}")
+        print(f"Unhandled or leaked exception {e}")
