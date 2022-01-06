@@ -44,6 +44,14 @@ __email__ = ['me@georgeflanagin.com', 'gflanagin@richmond.edu']
 __status__ = 'in progress'
 __license__ = 'MIT'
 
+#####################################################
+# dn: cn=dbagrp,ou=groups,dc=richmond,dc=edu
+# changetype: modify
+# add: memberuid
+# memberuid: adam
+#####################################################
+
+core_ldap_opts = """-h ldap.richmond.edu -p 389 -D cn=gflanagi,dc=richmond,dc=edu -w {{}}"""
 
 add_group            = lambda group : f"""sudo /usr/local/sbin/hpcgroupadd {group}"""
 add_user_to_group    = lambda user, group : f"""sudo /usr/local/sbin/hpcgpasswd -a {user} {group}"""
