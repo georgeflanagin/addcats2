@@ -133,6 +133,12 @@ def addcats_main(myargs:argparse.Namespace) -> int:
     """
     Generate a file of commands based on the input.
     """
+
+    # This is a hack. The jupyterhub group is a slightly fictional
+    # group that allows users to run jupyterhub.
+    this_is_the_webserver = socket.gethostname() == 'spdrweb.richmond.edu'
+    if this_is_the_webserver and 'jupyterhub' not in myargs.groups: 
+        myargs.groups.append('jupyterhub')
     
     # Each faculty member should have an eponymous group.
     # If this faculty member does not, then we need to
