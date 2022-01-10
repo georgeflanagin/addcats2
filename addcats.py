@@ -157,15 +157,15 @@ def addcats_main(myargs:argparse.Namespace) -> int:
     """
 
     # Eliminate duplicate groups.
-    myargs.groups = list(set(myargs.groups))
+    myargs.group = list(set(myargs.group))
 
     # This is a hack. The jupyterhub group is a slightly fictional
     # group that allows users to run jupyterhub.
     this_is_the_webserver = socket.gethostname() == 'spdrweb.richmond.edu'
-    if this_is_the_webserver and 'jupyterhub' not in myargs.groups: 
-        myargs.groups.append('jupyterhub')
-    elif not this_is_the_webserver and 'jupyterhub' in myargs.groups:
-        myargs.groups.remove('jupyterhub')
+    if this_is_the_webserver and 'jupyterhub' not in myargs.group: 
+        myargs.group.append('jupyterhub')
+    elif not this_is_the_webserver and 'jupyterhub' in myargs.group:
+        myargs.group.remove('jupyterhub')
     else:
         pass
     
