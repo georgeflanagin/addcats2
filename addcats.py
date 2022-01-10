@@ -67,6 +67,8 @@ def read_whitespace_file(filename:str) -> tuple:
     in a text file, one token at a time.
     """
 
+    if not filename: return []
+
     if not os.path.isfile(filename):
         sys.stderr.write(f"{filename} cannot be found.")
         return os.EX_NOINPUT
