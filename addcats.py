@@ -18,6 +18,7 @@ if sys.version_info < min_py:
 ###
 import argparse
 import contextlib
+import functools
 import getpass
 import socket
 import textwrap
@@ -26,6 +27,7 @@ import time
 ###
 # From hpclib
 ###
+from   dorunrun import dorunrun
 import linuxutils
 from   urdecorators import trap
 
@@ -45,6 +47,14 @@ __email__ = ['me@georgeflanagin.com', 'gflanagin@richmond.edu']
 __status__ = 'in progress'
 __license__ = 'MIT'
 
+#####################################################
+# dn: cn=dbagrp,ou=groups,dc=richmond,dc=edu
+# changetype: modify
+# add: memberuid
+# memberuid: adam
+#####################################################
+
+core_ldap_opts = """-h ldap.richmond.edu -p 389 -D cn=gflanagi,dc=richmond,dc=edu -w {{}}"""
 
 add_group            = lambda group : f"""sudo /usr/local/sbin/hpcgroupadd {group}"""
 add_user_to_group    = lambda user, group : f"""sudo /usr/local/sbin/hpcgpasswd -a {user} {group}"""
@@ -57,6 +67,8 @@ def read_whitespace_file(filename:str) -> tuple:
     This is a generator that returns the whitespace delimited tokens 
     in a text file, one token at a time.
     """
+
+    if not filename: return []
 
     if not os.path.isfile(filename):
         sys.stderr.write(f"{filename} cannot be found.")
@@ -126,6 +138,15 @@ addcats_help="""
 
     Sourcing the file "newusers.sh" will make it all happen.     
 
+                            ******************************************
+                            ******** about the --do-it switch ********
+                            ******************************************
+    
+    Regardless of the other arguments, the --do-it switch will cause the necessary
+    commands to be executed as they are encountered. The execution takes place
+    in a subprocess that invokes the dorunrun() function in the HPCLIB. This is
+    most useful when adding a single account where a script to source is unnecessary.  
+
     """
 
 
@@ -156,25 +177,25 @@ def addcats_main(myargs:argparse.Namespace) -> int:
     
     dollar_group = f"{myargs.faculty}$"
     if not linuxutils.group_exists(myargs.faculty):
-        print(add_group(myargs.faculty))
-        print(add_group(dollar_group))
-        print(manage(myargs.faculty))
-        print(add_user_to_group(myargs.faculty, myargs.faculty))
-        print(add_user_to_group(myargs.faculty, dollar_group))
-        print(add_user_to_group(myargs.faculty, 'faculty'))
+        foo(add_group(myargs.faculty))
+        foo(add_group(dollar_group))
+        foo(manage(myargs.faculty))
+        foo(add_user_to_group(myargs.faculty, myargs.faculty))
+        foo(add_user_to_group(myargs.faculty, dollar_group))
+        foo(add_user_to_group(myargs.faculty, 'faculty'))
 
     for g in myargs.group:
         if not linuxutils.group_exists(g):
-            print(add_group(g))
-        print(add_user_to_group(myargs.faculty, g))
+            foo(add_group(g))
+        foo(add_user_to_group(myargs.faculty, g))
 
     for netid in read_whitespace_file(myargs.input):
-        print(manage(netid))
-        print(add_user_to_group(netid, 'student'))
-        print(add_user_to_group(netid, dollar_group))
-        print(associate(netid, myargs.faculty))
+        foo(manage(netid))
+        foo(add_user_to_group(netid, 'student'))
+        foo(add_user_to_group(netid, dollar_group))
+        foo(associate(netid, myargs.faculty))
         for g in myargs.group:
-            print(add_user_to_group(netid, g))
+            foo(add_user_to_group(netid, g))
 
     return os.EX_OK
 
@@ -190,6 +211,11 @@ if __name__ == '__main__':
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=textwrap.dedent(addcats_help))
 
+
+    parser.add_argument('--do-it', action='store_true', 
+        help="Adding this switch will execute the commands \
+as the program runs rather than creating a file \
+of commands to be executed.")
     parser.add_argument('-f', '--faculty', type=str, required=True,
         help="Name of a faculty member.")
     parser.add_argument('-g', '--group', action='append', default=[],
@@ -200,6 +226,7 @@ if __name__ == '__main__':
         help="Output file name; defaults to stdout.")
 
     myargs = parser.parse_args()
+    foo = functools.partial(dorunrun, return_datatype=str) if myargs.do_it else print
 
     try:
         outfile = sys.stdout if not myargs.output else open(myargs.output, 'w')
