@@ -54,20 +54,21 @@ __license__ = 'MIT'
 # memberuid: adam
 #####################################################
 
-core_ldap_opts = """-h ldap.richmond.edu -p 389 -D cn=gflanagi,dc=richmond,dc=edu -w {{}}"""
-
 add_group            = lambda group : f"""sudo /usr/local/sbin/hpcgroupadd {group}"""
 add_user_to_group    = lambda user, group : f"""sudo /usr/local/sbin/hpcgpasswd -a {user} {group}"""
 drop_user_from_group = lambda user, group : f"""sudo /usr/local/sbin/hpcgpasswd -d {user} {group}"""
 manage               = lambda user : f"""sudo /usr/local/sbin/hpcmanage {user}"""
 associate            = lambda student, faculty : f"""sudo -u {student} ln -s /home/{faculty}/shared /home/{student}/shared_{faculty}"""
+make_shared_dir      = lambda faculty : f"""sudo -u {faculty} mkdir -p /home/{faculty}/shared"""
+chgrp_shared_dir     = lambda faculty : f"""sudo -u {faculty} chgrp {faculty}$ /home/{faculty}/shared"""
+chmod_shared_dir     = lambda faculty : f"""sudo -u {faculty} chmod 2770 /home/{faculty}/shared"""
+chmod_home_dir       = lambda u : f"""sudo -u {u} chmod 2711 /home/{u}"""
 
 def read_whitespace_file(filename:str) -> tuple:
     """
     This is a generator that returns the whitespace delimited tokens 
     in a text file, one token at a time.
     """
-
     if not filename: return []
 
     if not os.path.isfile(filename):
@@ -162,6 +163,8 @@ def addcats_main(myargs:argparse.Namespace) -> int:
     # This is a hack. The jupyterhub group is a slightly fictional
     # group that allows users to run jupyterhub.
     this_is_the_webserver = socket.gethostname() == 'spdrweb.richmond.edu'
+    this_is_the_cluster   = not this_is_the_webserver
+
     if this_is_the_webserver and 'jupyterhub' not in myargs.group: 
         myargs.group.append('jupyterhub')
     elif not this_is_the_webserver and 'jupyterhub' in myargs.group:
@@ -183,6 +186,11 @@ def addcats_main(myargs:argparse.Namespace) -> int:
         foo(add_user_to_group(myargs.faculty, myargs.faculty))
         foo(add_user_to_group(myargs.faculty, dollar_group))
         foo(add_user_to_group(myargs.faculty, 'faculty'))
+        foo(chmod_home_dir(myargs.faculty))
+        this_is_the_cluster and foo(make_shared_dir(myargs.faculty))
+        this_is_the_cluster and foo(chgrp_shared_dir(myargs.faculty))
+        this_is_the_cluster and foo(chmod_shared_dir(myargs.faculty))
+        
 
     for g in myargs.group:
         if not linuxutils.group_exists(g):
@@ -191,9 +199,10 @@ def addcats_main(myargs:argparse.Namespace) -> int:
 
     for netid in read_whitespace_file(myargs.input):
         foo(manage(netid))
+        foo(chmod_home_dir(netid))
         foo(add_user_to_group(netid, 'student'))
         foo(add_user_to_group(netid, dollar_group))
-        foo(associate(netid, myargs.faculty))
+        this_is_the_cluster and foo(associate(netid, myargs.faculty))
         for g in myargs.group:
             foo(add_user_to_group(netid, g))
 
