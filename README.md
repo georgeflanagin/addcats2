@@ -89,15 +89,15 @@ model of use on both spiderweb and spydur.
     and *on the cluster only* have a link to the shared directory belonging to `smehkari`, the faculty
     sponsor for this operation.
 
-Sourcing the file "newusers.sh" will make it all happen.
+Sourcing the file `newusers.sh` will make it all happen.
 
-            ******************************************
-            ******** about the --do-it switch ********
-            ******************************************
 
-Regardless of the other arguments, the --do-it switch will cause the
+## About the --do-it switch 
+
+Regardless of the other arguments, the `--do-it` switch will cause the
 necessary commands to be executed as they are encountered. The execution
-takes place in a subprocess that invokes the dorunrun() function in the
-HPCLIB. This is most useful when adding a single account where a script
-to source is unnecessary.
+takes place in a subprocess that invokes the `dorunrun()` function in the
+`HPCLIB`. This is most useful when adding a single account where a script
+to source is unnecessary, and the most common time for this to happen is
+during add/drop at the beginning of a semester.
 
