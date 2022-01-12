@@ -28,6 +28,7 @@ import time
 # From hpclib
 ###
 from   dorunrun import dorunrun
+import fileutils
 import linuxutils
 from   urdecorators import trap
 
@@ -54,30 +55,15 @@ __license__ = 'MIT'
 # memberuid: adam
 #####################################################
 
-core_ldap_opts = """-h ldap.richmond.edu -p 389 -D cn=gflanagi,dc=richmond,dc=edu -w {{}}"""
-
 add_group            = lambda group : f"""sudo /usr/local/sbin/hpcgroupadd {group}"""
 add_user_to_group    = lambda user, group : f"""sudo /usr/local/sbin/hpcgpasswd -a {user} {group}"""
 drop_user_from_group = lambda user, group : f"""sudo /usr/local/sbin/hpcgpasswd -d {user} {group}"""
 manage               = lambda user : f"""sudo /usr/local/sbin/hpcmanage {user}"""
 associate            = lambda student, faculty : f"""sudo -u {student} ln -s /home/{faculty}/shared /home/{student}/shared_{faculty}"""
-
-def read_whitespace_file(filename:str) -> tuple:
-    """
-    This is a generator that returns the whitespace delimited tokens 
-    in a text file, one token at a time.
-    """
-
-    if not filename: return []
-
-    if not os.path.isfile(filename):
-        sys.stderr.write(f"{filename} cannot be found.")
-        return os.EX_NOINPUT
-
-    f = open(filename)
-    for _ in (" ".join(f.read().split('\n'))).split():
-        yield _
-    
+make_shared_dir      = lambda faculty : f"""sudo -u {faculty} mkdir -p /home/{faculty}/shared"""
+chgrp_shared_dir     = lambda faculty : f"""sudo -u {faculty} chgrp {faculty}$ /home/{faculty}/shared"""
+chmod_shared_dir     = lambda faculty : f"""sudo -u {faculty} chmod 2770 /home/{faculty}/shared"""
+chmod_home_dir       = lambda u : f"""sudo -u {u} chmod 2711 /home/{u}"""
 
 addcats_help="""
 
@@ -93,7 +79,14 @@ addcats_help="""
     The INPUT file should be a whitespace delimited file of netids. They
     can be all on one line, or arbitrarily arranged by lines, including
     blank lines. Each of these netids is automatically added to the student 
-    group and the managed group.
+    group and the managed group. The file is searched for in the following
+    locations: $PWD, $OLDPWD, $HOME, and /scratch/{user-running-program}.
+
+    If the INPUT file cannot be found, the program assumes that it is the
+    netid of a single user to be processed. IOW, "-i netids" where the
+    netids file contains only "gflanagi" is the same as "-i gflanagi". This
+    feature makes it easier to support adding single users in an add-drop
+    situation.
 
     You can name one or more GROUPs of additional association. These groups
     will be created if they do not exist, and the FACULTY sponsor as well
@@ -162,19 +155,27 @@ def addcats_main(myargs:argparse.Namespace) -> int:
     # This is a hack. The jupyterhub group is a slightly fictional
     # group that allows users to run jupyterhub.
     this_is_the_webserver = socket.gethostname() == 'spdrweb.richmond.edu'
+    this_is_the_cluster   = not this_is_the_webserver
+
     if this_is_the_webserver and 'jupyterhub' not in myargs.group: 
         myargs.group.append('jupyterhub')
-    elif not this_is_the_webserver and 'jupyterhub' in myargs.group:
+    elif this_is_the_cluster and 'jupyterhub' in myargs.group:
         myargs.group.remove('jupyterhub')
     else:
         pass
     
+    #####
     # Each faculty member should have an eponymous group.
     # If this faculty member does not, then we need to
     # setup the faculty user before we do anything else.
     # Faculty also get a shared group (with the "$" 
     # appended).
-    
+    #
+    # Several operations produce bad results on spiderweb
+    # because of the restricted file system. Thus the use
+    # of "this_is_the_cluster and" preceding some operations.
+    #####
+ 
     dollar_group = f"{myargs.faculty}$"
     if not linuxutils.group_exists(myargs.faculty):
         foo(add_group(myargs.faculty))
@@ -183,17 +184,31 @@ def addcats_main(myargs:argparse.Namespace) -> int:
         foo(add_user_to_group(myargs.faculty, myargs.faculty))
         foo(add_user_to_group(myargs.faculty, dollar_group))
         foo(add_user_to_group(myargs.faculty, 'faculty'))
+        foo(chmod_home_dir(myargs.faculty))
+        this_is_the_cluster and foo(make_shared_dir(myargs.faculty))
+        this_is_the_cluster and foo(chgrp_shared_dir(myargs.faculty))
+        this_is_the_cluster and foo(chmod_shared_dir(myargs.faculty))
+        
 
     for g in myargs.group:
         if not linuxutils.group_exists(g):
             foo(add_group(g))
         foo(add_user_to_group(myargs.faculty, g))
 
-    for netid in read_whitespace_file(myargs.input):
+    # The input is either a file of netids, or it /is/ the netid,
+    # and there is only one of them. This is to make it easier
+    # to add only one user.
+    if (f := fileutils.home_and_away(myargs.input)):
+        netids = linuxutils.read_whitespace_file(f)
+    else:
+        netids = (myargs.input,)
+
+    for netid in netids:
         foo(manage(netid))
+        foo(chmod_home_dir(netid))
         foo(add_user_to_group(netid, 'student'))
         foo(add_user_to_group(netid, dollar_group))
-        foo(associate(netid, myargs.faculty))
+        this_is_the_cluster and foo(associate(netid, myargs.faculty))
         for g in myargs.group:
             foo(add_user_to_group(netid, g))
 
