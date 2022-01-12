@@ -28,6 +28,7 @@ import time
 # From hpclib
 ###
 from   dorunrun import dorunrun
+import fileutils
 import linuxutils
 from   urdecorators import trap
 
@@ -63,22 +64,6 @@ make_shared_dir      = lambda faculty : f"""sudo -u {faculty} mkdir -p /home/{fa
 chgrp_shared_dir     = lambda faculty : f"""sudo -u {faculty} chgrp {faculty}$ /home/{faculty}/shared"""
 chmod_shared_dir     = lambda faculty : f"""sudo -u {faculty} chmod 2770 /home/{faculty}/shared"""
 chmod_home_dir       = lambda u : f"""sudo -u {u} chmod 2711 /home/{u}"""
-
-def read_whitespace_file(filename:str) -> tuple:
-    """
-    This is a generator that returns the whitespace delimited tokens 
-    in a text file, one token at a time.
-    """
-    if not filename: return []
-
-    if not os.path.isfile(filename):
-        sys.stderr.write(f"{filename} cannot be found.")
-        return os.EX_NOINPUT
-
-    f = open(filename)
-    for _ in (" ".join(f.read().split('\n'))).split():
-        yield _
-    
 
 addcats_help="""
 
@@ -167,17 +152,23 @@ def addcats_main(myargs:argparse.Namespace) -> int:
 
     if this_is_the_webserver and 'jupyterhub' not in myargs.group: 
         myargs.group.append('jupyterhub')
-    elif not this_is_the_webserver and 'jupyterhub' in myargs.group:
+    elif this_is_the_cluster and 'jupyterhub' in myargs.group:
         myargs.group.remove('jupyterhub')
     else:
         pass
     
+    #####
     # Each faculty member should have an eponymous group.
     # If this faculty member does not, then we need to
     # setup the faculty user before we do anything else.
     # Faculty also get a shared group (with the "$" 
     # appended).
-    
+    #
+    # Several operations produce bad results on spiderweb
+    # because of the restricted file system. Thus the use
+    # of "this_is_the_cluster and" preceding some operations.
+    #####
+ 
     dollar_group = f"{myargs.faculty}$"
     if not linuxutils.group_exists(myargs.faculty):
         foo(add_group(myargs.faculty))
@@ -197,7 +188,15 @@ def addcats_main(myargs:argparse.Namespace) -> int:
             foo(add_group(g))
         foo(add_user_to_group(myargs.faculty, g))
 
-    for netid in read_whitespace_file(myargs.input):
+    # The input is either a file of netids, or it /is/ the netid,
+    # and there is only one of them. This is to make it easier
+    # to add only one user.
+    if (f := fileutils.home_and_away(myargs.input)):
+        netids = linuxutils.read_whitespace_file(f)
+    else:
+        netids = (myargs.input,)
+
+    for netid in netids:
         foo(manage(netid))
         foo(chmod_home_dir(netid))
         foo(add_user_to_group(netid, 'student'))
