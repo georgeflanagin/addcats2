@@ -6,20 +6,22 @@ usage: `addcats [-h] [--do-it] -f FACULTY [-g GROUP] [-i INPUT] [-o OUTPUT]`
 
 Create new accounts on Spydur! What addcats does, addcats does best.
 
+```
 optional arguments:
-  `-h`, `--help`            show this help message and exit
-  `--do-it`               Adding this switch will execute the commands 
+  -h, --help            show this help message and exit
+  --do-it               Adding this switch will execute the commands 
                         as the program runs rather than creating a
                         file of commands to be executed.
-  `-f FACULTY`, `--faculty FACULTY`
+  -f FACULTY, --faculty FACULTY
                         Name of a faculty member.
-  `-g GROUP`, `--group GROUP`
+  -g GROUP, --group GROUP
                         Name of additional groups to add to the users. 
                         Defaults to none.
-  `-i INPUT`, `--input INPUT`
+  -i INPUT, --input INPUT
                         Input file name with student netids.
-  `-o OUTPUT`, `--output OUTPUT`
+  -o OUTPUT`, --output OUTPUT
                         Output file name; defaults to stdout.
+```
 
 Explanation:
 
@@ -42,9 +44,9 @@ as all of the netids in the INPUT file will be added to the named groups.
 The OUTPUT "file" will default to stdout if it is not given. Otherwise,
 the output of this program is written to whatever file you name.
 
-                        ```**********
+                        **********
                        *** NOTE ***
-                        **********```
+                        **********
 
 Ordinary errors are forgiven. For example, repeatedly adding a user to a
 group does not create an error or a duplicate entry. Asking for a group
@@ -78,9 +80,9 @@ model of use on both spiderweb and spydur.
 
 Sourcing the file "newusers.sh" will make it all happen.
 
-            ```******************************************
+            ******************************************
             ******** about the --do-it switch ********
-            ******************************************```
+            ******************************************
 
 Regardless of the other arguments, the --do-it switch will cause the
 necessary commands to be executed as they are encountered. The execution
