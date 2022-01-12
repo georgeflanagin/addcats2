@@ -79,7 +79,14 @@ addcats_help="""
     The INPUT file should be a whitespace delimited file of netids. They
     can be all on one line, or arbitrarily arranged by lines, including
     blank lines. Each of these netids is automatically added to the student 
-    group and the managed group.
+    group and the managed group. The file is searched for in the following
+    locations: $PWD, $OLDPWD, $HOME, and /scratch/{user-running-program}.
+
+    If the INPUT file cannot be found, the program assumes that it is the
+    netid of a single user to be processed. IOW, "-i netids" where the
+    netids file contains only "gflanagi" is the same as "-i gflanagi". This
+    feature makes it easier to support adding single users in an add-drop
+    situation.
 
     You can name one or more GROUPs of additional association. These groups
     will be created if they do not exist, and the FACULTY sponsor as well
