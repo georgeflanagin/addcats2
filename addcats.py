@@ -199,7 +199,7 @@ def addcats_main(myargs:argparse.Namespace) -> int:
     # and there is only one of them. This is to make it easier
     # to add only one user.
     if (f := fileutils.home_and_away(myargs.input)):
-        netids = linuxutils.read_whitespace_file(f)
+        netids = fileutils.read_whitespace_file(f)
     else:
         netids = (myargs.input,)
 
