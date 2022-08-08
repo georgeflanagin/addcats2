@@ -30,6 +30,7 @@ import time
 from   dorunrun import dorunrun
 import fileutils
 import linuxutils
+import sqlitedb
 from   urdecorators import trap
 
 ###
@@ -148,6 +149,7 @@ def addcats_main(myargs:argparse.Namespace) -> int:
     """
     Generate a file of commands based on the input.
     """
+    db = sqlitedb.SQLiteDB(myargs.db)
 
     # Eliminate duplicate groups.
     myargs.group = list(set(myargs.group))
@@ -203,6 +205,9 @@ def addcats_main(myargs:argparse.Namespace) -> int:
     else:
         netids = (myargs.input,)
 
+    SQL = (lambda netid : f"INSERT INTO 
+        )
+
     for netid in netids:
         foo(manage(netid))
         foo(chmod_home_dir(netid))
@@ -239,6 +244,7 @@ of commands to be executed.")
         help="Input file name with student netids.")
     parser.add_argument('-o', '--output', type=str, default="",
         help="Output file name; defaults to stdout.")
+    parser.add_argument('--db', type=str, default="/home/installer/affinity.db")
 
     myargs = parser.parse_args()
     foo = functools.partial(dorunrun, return_datatype=str) if myargs.do_it else print
