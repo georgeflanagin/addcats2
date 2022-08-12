@@ -21,6 +21,7 @@ import contextlib
 import functools
 import getpass
 import socket
+import sqlite3
 import textwrap
 import time
 
@@ -48,23 +49,6 @@ __maintainer__ = 'George Flanagin'
 __email__ = ['me@georgeflanagin.com', 'gflanagin@richmond.edu']
 __status__ = 'in progress'
 __license__ = 'MIT'
-
-#####################################################
-# dn: cn=dbagrp,ou=groups,dc=richmond,dc=edu
-# changetype: modify
-# add: memberuid
-# memberuid: adam
-#####################################################
-
-add_group            = lambda group : f"""sudo /usr/local/sbin/hpcgroupadd {group}"""
-add_user_to_group    = lambda user, group : f"""sudo /usr/local/sbin/hpcgpasswd -a {user} {group}"""
-drop_user_from_group = lambda user, group : f"""sudo /usr/local/sbin/hpcgpasswd -d {user} {group}"""
-manage               = lambda user : f"""sudo /usr/local/sbin/hpcmanage {user}"""
-associate            = lambda student, faculty : f"""sudo -u {student} ln -s /home/{faculty}/shared /home/{student}/shared_{faculty}"""
-make_shared_dir      = lambda faculty : f"""sudo -u {faculty} mkdir -p /home/{faculty}/shared"""
-chgrp_shared_dir     = lambda faculty : f"""sudo -u {faculty} chgrp {faculty}$ /home/{faculty}/shared"""
-chmod_shared_dir     = lambda faculty : f"""sudo -u {faculty} chmod 2770 /home/{faculty}/shared"""
-chmod_home_dir       = lambda u : f"""sudo -u {u} chmod 2711 /home/{u}"""
 
 addcats_help="""
 
@@ -142,6 +126,84 @@ addcats_help="""
     most useful when adding a single account where a script to source is unnecessary.  
 
     """
+#####################################################
+# dn: cn=dbagrp,ou=groups,dc=richmond,dc=edu
+# changetype: modify
+# add: memberuid
+# memberuid: adam
+#####################################################
+
+add_group            = lambda group : f"""sudo /usr/local/sbin/hpcgroupadd {group}"""
+add_user_to_group    = lambda user, group : f"""sudo /usr/local/sbin/hpcgpasswd -a {user} {group}"""
+drop_user_from_group = lambda user, group : f"""sudo /usr/local/sbin/hpcgpasswd -d {user} {group}"""
+manage               = lambda user : f"""sudo /usr/local/sbin/hpcmanage {user}"""
+associate            = lambda student, faculty : f"""sudo -u {student} ln -s /home/{faculty}/shared /home/{student}/shared_{faculty}"""
+make_shared_dir      = lambda faculty : f"""sudo -u {faculty} mkdir -p /home/{faculty}/shared"""
+chgrp_shared_dir     = lambda faculty : f"""sudo -u {faculty} chgrp {faculty}$ /home/{faculty}/shared"""
+chmod_shared_dir     = lambda faculty : f"""sudo -u {faculty} chmod 2770 /home/{faculty}/shared"""
+chmod_home_dir       = lambda u : f"""sudo -u {u} chmod 2711 /home/{u}"""
+
+foo = object
+this_is_the_webserver = socket.gethostname() == 'spdrweb.richmond.edu'
+this_is_the_cluster   = not this_is_the_webserver
+
+
+SQL = linuxutils.SloppyDict({ 
+    "newfaculty":"INSERT INTO faculty_master VALUES (?)",
+    "facultypartition":"INSERT INTO faculty_partitions VALUES (?, ?)",
+    "facultystudent":"INSERT INTO faculty_student VALUES (?, ?)"
+    })
+
+
+@trap
+def addfaculty(db:sqlitedb.SQLiteDB, netid:str) -> bool:
+    """
+    Perform the addition, and trap any exceptions so that one
+    can forgive duplicates and simply return False.
+    """
+    global foo
+    dollar_group = f"{netid}$"
+
+    try:
+        db.execute_SQL(SQL.newfaculty, netid)            
+        db.execute_SQL(SQL.facultypartition, netid, 'basic')
+        db.execute_SQL(SQL.facultypartition, netid, 'medium')
+        db.execute_SQL(SQL.facultypartition, netid, 'large')
+        db.execute_SQL(SQL.facultypartition, netid, 'ML')
+        db.execute_SQL(SQL.facultypartition, netid, 'sci')
+        foo(add_group(netid))
+        foo(add_group(dollar_group))
+        foo(manage(netid))
+        foo(add_user_to_group(netid, netid))
+        foo(add_user_to_group(netid, dollar_group))
+        foo(add_user_to_group(netid, 'faculty'))
+        foo(chmod_home_dir(netid))
+        this_is_the_cluster and foo(make_shared_dir(netid))
+        this_is_the_cluster and foo(chgrp_shared_dir(netid))
+        this_is_the_cluster and foo(chmod_shared_dir(netid))
+        
+        result = db.commit()
+
+    except sqlite3.IntegrityError as e:
+        print(f"Faculty member {netid} is already in faculty_master")
+        # Forgive a duplicate
+        return True
+
+    except sqlite3.OperationalError as e:
+        print(f"While adding {netid}, this happened: {e}")
+        return False
+
+    except Exception as e:
+        print(f"While adding {netid}, this happened: {e}")
+        sys.exit(os.EX_IOERR)
+
+    else:
+        if not result:
+            print("commit failed adding new faculty")
+            sys.exit(os.EX_IOERR)
+            return False
+
+    return True
 
 
 @trap
@@ -156,9 +218,6 @@ def addcats_main(myargs:argparse.Namespace) -> int:
 
     # This is a hack. The jupyterhub group is a slightly fictional
     # group that allows users to run jupyterhub.
-    this_is_the_webserver = socket.gethostname() == 'spdrweb.richmond.edu'
-    this_is_the_cluster   = not this_is_the_webserver
-
     if this_is_the_webserver and 'jupyterhub' not in myargs.group: 
         myargs.group.append('jupyterhub')
     elif this_is_the_cluster and 'jupyterhub' in myargs.group:
@@ -176,43 +235,52 @@ def addcats_main(myargs:argparse.Namespace) -> int:
     # Several operations produce bad results on spiderweb
     # because of the restricted file system. Thus the use
     # of "this_is_the_cluster and" preceding some operations.
+    # 
+    # every faculty member is a part of the faculty group, so if the
+    # the named netid is only a member of 'people', then we need to
+    # create this account also.
     #####
- 
-    dollar_group = f"{myargs.faculty}$"
-    if not linuxutils.group_exists(myargs.faculty):
-        foo(add_group(myargs.faculty))
-        foo(add_group(dollar_group))
-        foo(manage(myargs.faculty))
-        foo(add_user_to_group(myargs.faculty, myargs.faculty))
-        foo(add_user_to_group(myargs.faculty, dollar_group))
-        foo(add_user_to_group(myargs.faculty, 'faculty'))
-        foo(chmod_home_dir(myargs.faculty))
-        this_is_the_cluster and foo(make_shared_dir(myargs.faculty))
-        this_is_the_cluster and foo(chgrp_shared_dir(myargs.faculty))
-        this_is_the_cluster and foo(chmod_shared_dir(myargs.faculty))
-        
+    if not linuxutils.is_faculty(myargs.faculty):
+        print(f"{myargs.faculty} does not appear to be faculty.")
+        print(f"Please add {myargs.faculty} manually, and then re-run this program.")
+        sys.exit(os.EX_NOUSER)
 
+    # If a netid is valid but there is no existing account, 
+    # then the netid will be a member of people (only).
+    addfaculty(db, myargs.faculty)
+
+    # Let's check to see if we need to add groups.
     for g in myargs.group:
-        if not linuxutils.group_exists(g):
-            foo(add_group(g))
+        not linuxutils.group_exists(g) and foo(add_group(g))
+        # No need to check on this; if a user is already in a group,
+        # adding the user a second time will make no difference.
         foo(add_user_to_group(myargs.faculty, g))
+        
 
     # The input is either a file of netids, or it /is/ the netid,
     # and there is only one of them. This is to make it easier
-    # to add only one user.
+    # to add only one user which during add-drop and mid-semester
+    # is a fairly common event.
     if (f := fileutils.home_and_away(myargs.input)):
         netids = fileutils.read_whitespace_file(f)
     else:
         netids = (myargs.input,)
 
-    SQL = (lambda netid : f"INSERT INTO 
-        )
-
+    # Adding non-faculty is much simpler than adding faculty. Non-faculty
+    # get their authorizations from faculty associations.
     for netid in netids:
+        # Again, if the netid is already managed, this is not an error.
         foo(manage(netid))
+        try:
+            db.execute_SQL(SQL.facultystudent, myargs.faculty, netid)
+            db.commit()
+        except sqlite3.IntegrityError as e:
+            pass
+
+            
         foo(chmod_home_dir(netid))
         foo(add_user_to_group(netid, 'student'))
-        foo(add_user_to_group(netid, dollar_group))
+        foo(add_user_to_group(netid, f'{myargs.faculty}$'))
         this_is_the_cluster and foo(associate(netid, myargs.faculty))
         for g in myargs.group:
             foo(add_user_to_group(netid, g))
@@ -244,9 +312,13 @@ of commands to be executed.")
         help="Input file name with student netids.")
     parser.add_argument('-o', '--output', type=str, default="",
         help="Output file name; defaults to stdout.")
-    parser.add_argument('--db', type=str, default="/home/installer/affinity.db")
+    parser.add_argument('--db', type=str, default="/home/installer/addcats/affinity.db")
 
     myargs = parser.parse_args()
+    ###
+    # Note what this does. foo will always be the name we call. Sometimes it
+    # prints the command and sometimes it executes the command.
+    ###
     foo = functools.partial(dorunrun, return_datatype=str) if myargs.do_it else print
 
     try:
