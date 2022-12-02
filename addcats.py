@@ -108,6 +108,7 @@ addcats_help="""
     - The econ270 group will be created.
     - All the named parties will be added to it.
     - gflanagi will be added to econ and econ270
+    - gflanagi will be added to econ and econ270
     - The new faculty member efhutton will be added to all the groups, and will have
         a new account created.
     - The student netids will will be added to the groups, have new accounts created,
@@ -165,6 +166,7 @@ def addfaculty(db:sqlitedb.SQLiteDB, netid:str) -> bool:
     dollar_group = f"{netid}$"
 
     try:
+      if linuxutils.is_faculty(netid): 
         db.execute_SQL(SQL.newfaculty, netid)            
         db.execute_SQL(SQL.facultypartition, netid, 'basic')
         db.execute_SQL(SQL.facultypartition, netid, 'medium')
@@ -183,15 +185,19 @@ def addfaculty(db:sqlitedb.SQLiteDB, netid:str) -> bool:
         this_is_the_cluster and foo(chmod_shared_dir(netid))
         
         result = db.commit()
+        return True
+      else:
+        print("The faculty netid is invalid.")
+        return False
 
     except sqlite3.IntegrityError as e:
-        print(f"Faculty member {netid} is already in faculty_master")
         # Forgive a duplicate
-        return True
+        print(f"Faculty member {netid} is already in faculty_master")
+        return False
 
     except sqlite3.OperationalError as e:
-        print(f"While adding {netid}, this happened: {e}")
-        return False
+         print(f"While adding {netid}, this happened: {e}")
+         return False
 
     except Exception as e:
         print(f"While adding {netid}, this happened: {e}")
@@ -254,7 +260,7 @@ def addcats_main(myargs:argparse.Namespace) -> int:
         not linuxutils.group_exists(g) and foo(add_group(g))
         # No need to check on this; if a user is already in a group,
         # adding the user a second time will make no difference.
-        foo(add_user_to_group(myargs.faculty, g))
+        foo(add_user_to_group(myargs.faculty, g)) if linuxutils.group_exists(g) else print("Invalid group")
         
 
     # The input is either a file of netids, or it /is/ the netid,
@@ -270,12 +276,15 @@ def addcats_main(myargs:argparse.Namespace) -> int:
     # get their authorizations from faculty associations.
     for netid in netids:
         # Again, if the netid is already managed, this is not an error.
+     groups_current = [group for group in linuxutils.getgroups(netid) if group == f"{myargs.faculty}"+"$"]
+     if linuxutils.is_student(netid) and len(groups_current)==0: #check if the student netid is valid and if the student is not in the group already 
         foo(manage(netid))
         try:
             db.execute_SQL(SQL.facultystudent, myargs.faculty, netid)
+            print(f"The student {netid} is successfully added.")
             db.commit()
         except sqlite3.IntegrityError as e:
-            pass
+             pass
 
             
         foo(chmod_home_dir(netid))
@@ -284,15 +293,19 @@ def addcats_main(myargs:argparse.Namespace) -> int:
         this_is_the_cluster and foo(associate(netid, myargs.faculty))
         for g in myargs.group:
             foo(add_user_to_group(netid, g))
+     elif len(groups_current)!=0:
+            print(f"The student {netid} is already in the group.")
+     else:
+            print(f"The student netid {netid} is invalid.")
 
     return os.EX_OK
 
 
 if __name__ == '__main__':
     
-    if getpass.getuser() not in ('root', 'installer'):
-        sys.stderr.write('You must log in as "installer" to execute the output of this program!\n')
-        time.sleep(5)
+    # if getpass.getuser() not in ('root', 'installer'):
+    #    sys.stderr.write('You must log in as "installer" to execute the output of this program!\n')
+    #    time.sleep(5)
 
     parser = argparse.ArgumentParser(prog="addcats", 
         description="Create new accounts on Spydur!\nWhat addcats does, addcats does best.",
@@ -312,7 +325,7 @@ of commands to be executed.")
         help="Input file name with student netids.")
     parser.add_argument('-o', '--output', type=str, default="",
         help="Output file name; defaults to stdout.")
-    parser.add_argument('--db', type=str, default="/home/installer/addcats/affinity.db")
+    parser.add_argument('--db', type=str, default="/usr/local/sw/affinity.db")
 
     myargs = parser.parse_args()
     ###
