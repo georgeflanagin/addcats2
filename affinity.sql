@@ -20,3 +20,11 @@ CREATE TABLE "faculty_student" (
     when_added datetime default current_timestamp, 
     foreign key(faculty) references faculty_master(faculty)
     );
+
+
+CREATE TABLE users (
+    netid varchar(20),
+    usertype varchar(20),
+    lastseen timestamp default current_timestamp
+    );
+

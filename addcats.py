@@ -152,7 +152,7 @@ this_is_the_cluster   = not this_is_the_webserver
 SQL = linuxutils.SloppyDict({ 
     "newfaculty":"INSERT INTO faculty_master VALUES (?)",
     "facultypartition":"INSERT INTO faculty_partitions VALUES (?, ?)",
-    "facultystudent":"INSERT INTO faculty_student VALUES (?, ?)"
+    "facultystudent":"INSERT INTO faculty_student (faculty, student) VALUES (?, ?)"
     })
 
 
@@ -317,7 +317,8 @@ if __name__ == '__main__':
         help="Adding this switch will execute the commands \
 as the program runs rather than creating a file \
 of commands to be executed.")
-    parser.add_argument('-f', '--faculty', type=str, required=True,
+    parser.add_argument('--db', type=str, default="/usr/local/sw/databases/affinity.db")
+    parser.add_argument('-f', '--faculty', type=str,
         help="Name of a faculty member.")
     parser.add_argument('-g', '--group', action='append', default=[],
         help="Name of additional groups to add to the users. Defaults to none.")
@@ -325,7 +326,6 @@ of commands to be executed.")
         help="Input file name with student netids.")
     parser.add_argument('-o', '--output', type=str, default="",
         help="Output file name; defaults to stdout.")
-    parser.add_argument('--db', type=str, default="/usr/local/sw/affinity.db")
 
     myargs = parser.parse_args()
     ###
