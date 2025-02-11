@@ -279,7 +279,6 @@ if __name__ == '__main__':
 
         (\___/)
        (= *.* =)
-        (  -  )
 
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
