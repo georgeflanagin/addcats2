@@ -31,6 +31,8 @@ import time
 from   dorunrun import dorunrun
 import fileutils
 import linuxutils
+import sloppytree
+from   sloppytree import SloppyTree
 import sqlitedb
 from   urdecorators import trap
 
@@ -149,7 +151,7 @@ this_is_the_webserver = socket.gethostname() == 'spdrweb.richmond.edu'
 this_is_the_cluster   = not this_is_the_webserver
 
 
-SQL = linuxutils.SloppyDict({ 
+SQL = sloppytree.SloppyTree({ 
     "newfaculty":"INSERT INTO faculty_master VALUES (?)",
     "facultypartition":"INSERT INTO faculty_partitions VALUES (?, ?)",
     "facultystudent":"INSERT INTO faculty_student (faculty, student) VALUES (?, ?)"
@@ -277,7 +279,7 @@ def addcats_main(myargs:argparse.Namespace) -> int:
     for netid in netids:
         # Again, if the netid is already managed, this is not an error.
      groups_current = [group for group in linuxutils.getgroups(netid) if group == f"{myargs.faculty}"+"$"]
-     if linuxutils.is_student(netid) and len(groups_current)==0: #check if the student netid is valid and if the student is not in the group already 
+     if len(groups_current)==0: #check if the student netid is valid and if the student is not in the group already 
         foo(manage(netid))
         try:
             db.execute_SQL(SQL.facultystudent, myargs.faculty, netid)
