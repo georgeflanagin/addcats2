@@ -14,17 +14,12 @@ if sys.version_info < min_py:
     sys.exit(os.EX_SOFTWARE)
 
 ###
-# From hpclib
-###
-import linuxutils
-
-###
 # Credits
 ###
 __author__ = 'George Flanagin'
-__copyright__ = 'Copyright 2022'
+__copyright__ = 'Copyright 2022, 2025'
 __credits__ = None
-__version__ = 0.1
+__version__ = 1.1
 __maintainer__ = 'George Flanagin'
 __email__ = ['gflanagin@richmond.edu', 'me@georgeflanagin.com']
 __status__ = 'in progress'
@@ -38,3 +33,4 @@ departments = (
     'laws', 'maps', 'math', 'musi', 'phys', 'psyc'
     )
 
+partitions = ('basic', 'medium', 'large', 'sci', 'ML')

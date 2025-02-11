@@ -14,29 +14,35 @@ if sys.version_info < min_py:
     sys.exit(os.EX_SOFTWARE)
 
 ###
-# Other standard distro imports
-###
-import argparse
-
-###
-# From hpclib
-###
-import linuxutils
-from   urdecorators import show_exceptions_and_frames as trap
-
-###
 # Credits
 ###
 __author__ = 'George Flanagin'
-__copyright__ = 'Copyright 2022'
+__copyright__ = 'Copyright 2022, 2025'
 __credits__ = None
-__version__ = 0.1
+__version__ = 1.1
 __maintainer__ = 'George Flanagin'
 __email__ = ['gflanagin@richmond.edu', 'me@georgeflanagin.com']
 __status__ = 'in progress'
 __license__ = 'MIT'
 
-add_group         = lambda group : f"""sudo /usr/local/sbin/hpcgroupadd {group}"""
-add_user_to_group   = lambda user, group : f"""sudo /usr/local/sbin/hpcgpasswd -a {user} {group}"""
+#####################################################
+# dn: cn=dbagrp,ou=groups,dc=richmond,dc=edu
+# changetype: modify
+# add: memberuid
+# memberuid: adam
+#####################################################
+
+add_group            = lambda group : f"""sudo /usr/local/sbin/hpcgroupadd {group}"""
+add_user_to_group    = lambda user, group : f"""sudo /usr/local/sbin/hpcgpasswd -a {user} {group}"""
 drop_user_from_group = lambda user, group : f"""sudo /usr/local/sbin/hpcgpasswd -d {user} {group}"""
-manage           = lambda user : f"""sudo /usr/local/sbin/hpcmanage {user}"""
+manage               = lambda user : f"""sudo /usr/local/sbin/hpcmanage {user}"""
+associate            = lambda student, faculty : f"""sudo -u {student} ln -s /home/{faculty}/shared /home/{student}/shared_{faculty}"""
+make_shared_dir      = lambda faculty : f"""sudo -u {faculty} mkdir -p /home/{faculty}/shared"""
+chgrp_shared_dir     = lambda faculty : f"""sudo -u {faculty} chgrp {faculty}$ /home/{faculty}/shared"""
+chmod_shared_dir     = lambda faculty : f"""sudo -u {faculty} chmod 2770 /home/{faculty}/shared"""
+chmod_home_dir       = lambda u : f"""sudo -u {u} chmod 2711 /home/{u}"""
+
+make_mailbox         = lambda faculty : f"""sudo -u {faculty} mkdir -p /home/{faculty}/mailbox"""
+chmod_mailbox        = lambda faculty : f"""sudo -u {faculty} chmod 2730 /home/{faculty}/mailbox"""
+chgrp_mailbox        = lambda faculty : f"""sudo -u {faculty} chgrp {faculty}$ /home/{faculty}/mailbox"""
+

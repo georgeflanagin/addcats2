@@ -23,7 +23,6 @@ import getpass
 import socket
 import sqlite3
 import textwrap
-import time
 
 ###
 # From hpclib
@@ -39,14 +38,17 @@ from   urdecorators import trap
 ###
 # This project only.
 ###
+# shellcommands.py contains the necessary commands as lambda functions.
+from   shellcommands import *
+import facultydata
 
 ###
 # Credits
 ###
 __author__ = 'George Flanagin'
-__copyright__ = 'Copyright 2021'
+__copyright__ = 'Copyright 2021, 2025'
 __credits__ = None
-__version__ = 0.1
+__version__ = 1.1
 __maintainer__ = 'George Flanagin'
 __email__ = ['me@georgeflanagin.com', 'gflanagin@richmond.edu']
 __status__ = 'in progress'
@@ -129,22 +131,6 @@ addcats_help="""
     most useful when adding a single account where a script to source is unnecessary.  
 
     """
-#####################################################
-# dn: cn=dbagrp,ou=groups,dc=richmond,dc=edu
-# changetype: modify
-# add: memberuid
-# memberuid: adam
-#####################################################
-
-add_group            = lambda group : f"""sudo /usr/local/sbin/hpcgroupadd {group}"""
-add_user_to_group    = lambda user, group : f"""sudo /usr/local/sbin/hpcgpasswd -a {user} {group}"""
-drop_user_from_group = lambda user, group : f"""sudo /usr/local/sbin/hpcgpasswd -d {user} {group}"""
-manage               = lambda user : f"""sudo /usr/local/sbin/hpcmanage {user}"""
-associate            = lambda student, faculty : f"""sudo -u {student} ln -s /home/{faculty}/shared /home/{student}/shared_{faculty}"""
-make_shared_dir      = lambda faculty : f"""sudo -u {faculty} mkdir -p /home/{faculty}/shared"""
-chgrp_shared_dir     = lambda faculty : f"""sudo -u {faculty} chgrp {faculty}$ /home/{faculty}/shared"""
-chmod_shared_dir     = lambda faculty : f"""sudo -u {faculty} chmod 2770 /home/{faculty}/shared"""
-chmod_home_dir       = lambda u : f"""sudo -u {u} chmod 2711 /home/{u}"""
 
 foo = object
 this_is_the_webserver = socket.gethostname() == 'spdrweb.richmond.edu'
@@ -168,13 +154,9 @@ def addfaculty(db:sqlitedb.SQLiteDB, netid:str) -> bool:
     dollar_group = f"{netid}$"
 
     try:
-      if linuxutils.is_faculty(netid): 
         db.execute_SQL(SQL.newfaculty, netid)            
-        db.execute_SQL(SQL.facultypartition, netid, 'basic')
-        db.execute_SQL(SQL.facultypartition, netid, 'medium')
-        db.execute_SQL(SQL.facultypartition, netid, 'large')
-        db.execute_SQL(SQL.facultypartition, netid, 'ML')
-        db.execute_SQL(SQL.facultypartition, netid, 'sci')
+        for p in facultydata.partitions:
+            db.execute_SQL(SQL.facultypartition, netid, p)
         foo(add_group(netid))
         foo(add_group(dollar_group))
         foo(manage(netid))
@@ -307,8 +289,6 @@ if __name__ == '__main__':
     
     # if getpass.getuser() not in ('root', 'installer'):
     #    sys.stderr.write('You must log in as "installer" to execute the output of this program!\n')
-    #    time.sleep(5)
-
     parser = argparse.ArgumentParser(prog="addcats", 
         description="Create new accounts on Spydur!\nWhat addcats does, addcats does best.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
