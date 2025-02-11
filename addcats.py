@@ -43,6 +43,12 @@ from   shellcommands import *
 import facultydata
 
 ###
+# do_it is a global variable, allowing this program to be run
+# offline for testing.
+###
+do_it = False
+
+###
 # Credits
 ###
 __author__ = 'George Flanagin'
@@ -154,7 +160,7 @@ def addfaculty(db:sqlitedb.SQLiteDB, netid:str) -> bool:
     dollar_group = f"{netid}$"
 
     try:
-        db.execute_SQL(SQL.newfaculty, netid)            
+        do_it and db.execute_SQL(SQL.newfaculty, netid)            
         for p in facultydata.partitions:
             db.execute_SQL(SQL.facultypartition, netid, p)
         foo(add_group(netid))
@@ -168,11 +174,7 @@ def addfaculty(db:sqlitedb.SQLiteDB, netid:str) -> bool:
         this_is_the_cluster and foo(chgrp_shared_dir(netid))
         this_is_the_cluster and foo(chmod_shared_dir(netid))
         
-        result = db.commit()
-        return True
-      else:
-        print("The faculty netid is invalid.")
-        return False
+        result = db.commit() if do_it else True
 
     except sqlite3.IntegrityError as e:
         # Forgive a duplicate
@@ -201,13 +203,17 @@ def addcats_main(myargs:argparse.Namespace) -> int:
     """
     Generate a file of commands based on the input.
     """
-    db = sqlitedb.SQLiteDB(myargs.db)
+    global do_it
+
+    # Get the database open first.
+    if do_it:
+        db = sqlitedb.SQLiteDB(myargs.db)
 
     # Eliminate duplicate groups.
     myargs.group = list(set(myargs.group))
 
     # This is a hack. The jupyterhub group is a slightly fictional
-    # group that allows users to run jupyterhub.
+    # group that allows users to run jupyterhub. The purpose is unclear.
     if this_is_the_webserver and 'jupyterhub' not in myargs.group: 
         myargs.group.append('jupyterhub')
     elif this_is_the_cluster and 'jupyterhub' in myargs.group:
@@ -230,26 +236,21 @@ def addcats_main(myargs:argparse.Namespace) -> int:
     # the named netid is only a member of 'people', then we need to
     # create this account also.
     #####
-    if not linuxutils.is_faculty(myargs.faculty):
-        print(f"{myargs.faculty} does not appear to be faculty.")
-        print(f"Please add {myargs.faculty} manually, and then re-run this program.")
-        sys.exit(os.EX_NOUSER)
+    for f in myargs.faculty: 
+        addfaculty(db, myargs.faculty)
 
-    # If a netid is valid but there is no existing account, 
-    # then the netid will be a member of people (only).
-    addfaculty(db, myargs.faculty)
-
-    # Let's check to see if we need to add groups.
+    # Let's check to see if we need to add groups. Note that this
+    # feature allows groups to be added dynamically. 
     for g in myargs.group:
         not linuxutils.group_exists(g) and foo(add_group(g))
         # No need to check on this; if a user is already in a group,
         # adding the user a second time will make no difference.
-        foo(add_user_to_group(myargs.faculty, g)) if linuxutils.group_exists(g) else print("Invalid group")
+        foo(add_user_to_group(myargs.faculty, g))
         
 
     # The input is either a file of netids, or it /is/ the netid,
     # and there is only one of them. This is to make it easier
-    # to add only one user which during add-drop and mid-semester
+    # to add only one user, which during add-drop and mid-semester,
     # is a fairly common event.
     if (f := fileutils.home_and_away(myargs.input)):
         netids = fileutils.read_whitespace_file(f)
@@ -259,17 +260,15 @@ def addcats_main(myargs:argparse.Namespace) -> int:
     # Adding non-faculty is much simpler than adding faculty. Non-faculty
     # get their authorizations from faculty associations.
     for netid in netids:
+
         # Again, if the netid is already managed, this is not an error.
-     groups_current = [group for group in linuxutils.getgroups(netid) if group == f"{myargs.faculty}"+"$"]
-     if len(groups_current)==0: #check if the student netid is valid and if the student is not in the group already 
         foo(manage(netid))
         try:
-            db.execute_SQL(SQL.facultystudent, myargs.faculty, netid)
+            do_it and db.execute_SQL(SQL.facultystudent, myargs.faculty, netid)
             print(f"The student {netid} is successfully added.")
-            db.commit()
+            do_it and db.commit()
         except sqlite3.IntegrityError as e:
-             pass
-
+            pass
             
         foo(chmod_home_dir(netid))
         foo(add_user_to_group(netid, 'student'))
@@ -277,10 +276,6 @@ def addcats_main(myargs:argparse.Namespace) -> int:
         this_is_the_cluster and foo(associate(netid, myargs.faculty))
         for g in myargs.group:
             foo(add_user_to_group(netid, g))
-     elif len(groups_current)!=0:
-            print(f"The student {netid} is already in the group.")
-     else:
-            print(f"The student netid {netid} is invalid.")
 
     return os.EX_OK
 
@@ -290,26 +285,42 @@ if __name__ == '__main__':
     # if getpass.getuser() not in ('root', 'installer'):
     #    sys.stderr.write('You must log in as "installer" to execute the output of this program!\n')
     parser = argparse.ArgumentParser(prog="addcats", 
-        description="Create new accounts on Spydur!\nWhat addcats does, addcats does best.",
+        description="""
+    Create new accounts on Spydur.
+    What addcats does, addcats does best ... it add cats!
+        """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=textwrap.dedent(addcats_help))
 
 
     parser.add_argument('--do-it', action='store_true', 
-        help="Adding this switch will execute the commands \
-as the program runs rather than creating a file \
-of commands to be executed.")
+        help="""
+    Adding this switch will execute the commands \
+    as the program runs rather than creating a file \
+    of commands to be executed.""")
+
     parser.add_argument('--db', type=str, default="/usr/local/sw/databases/affinity.db")
-    parser.add_argument('-f', '--faculty', type=str,
+    parser.add_argument('-f', '--faculty', action='append', default=[],
         help="Name of a faculty member.")
     parser.add_argument('-g', '--group', action='append', default=[],
         help="Name of additional groups to add to the users. Defaults to none.")
     parser.add_argument('-i', '--input', type=str, default="",
-        help="Input file name with student netids.")
+        help="Input file name with student netids, or the one netid to be added.")
     parser.add_argument('-o', '--output', type=str, default="",
         help="Output file name; defaults to stdout.")
 
     myargs = parser.parse_args()
+    do_it = myargs.do_it
+
+    ###
+    # The only a priori logic error is to not name a faculty member, so
+    # let's check now. (We cannot make it a required parameter because
+    # it is a list.
+    ###
+    if not myargs.faculty:
+        print("At least one faculty must be named for this program to run.")
+        sys.exit(os.EX_CONFIG)
+
     ###
     # Note what this does. foo will always be the name we call. Sometimes it
     # prints the command and sometimes it executes the command.
