@@ -64,29 +64,26 @@ addcats_help="""
 
     Explanation:
 
-    FACULTY -- There must be a named faculty member who is sponsoring
+    FACULTY -- There must be at least one named faculty member who is sponsoring
     the netids for which accounts are being created. A faculty member
-    is effectively a self-sponsored user. The netids in the INPUT file will
+    is effectively a self-sponsored user. The student netids will
     be associated with this faculty member. The faculty member's account
     will be created if it does not exist. All faculty are automatically
     added to the faculty group and the managed group.
 
+    GROUPS -- These are the Linux groups that allow members to share 
+    files. 
+
     The INPUT file should be a whitespace delimited file of netids. They
     can be all on one line, or arbitrarily arranged by lines, including
     blank lines. Each of these netids is automatically added to the student 
-    group and the managed group. The file is searched for in the following
-    locations: $PWD, $OLDPWD, $HOME, and /scratch/{user-running-program}.
+    group and the managed group.
 
-    If the INPUT file cannot be found, the program assumes that it is the
+    If the INPUT "file" cannot be found, the program assumes that it is the
     netid of a single user to be processed. IOW, "-i netids" where the
     netids file contains only "gflanagi" is the same as "-i gflanagi". This
     feature makes it easier to support adding single users in an add-drop
     situation.
-
-    You can name one or more GROUPs of additional association. These groups
-    will be created if they do not exist, and the FACULTY sponsor as well
-    as all of the netids in the INPUT file will be added to the named
-    groups.
 
     The OUTPUT "file" will default to stdout if it is not given. Otherwise,
     the output of this program is written to whatever file you name. 
@@ -98,12 +95,7 @@ addcats_help="""
     Ordinary errors are forgiven. For example, repeatedly adding a user to 
     a group does not create an error or a duplicate entry. Asking for a
     group that already exists to be created is ignored. A student netid
-    may be associated with more than one faculty sponsor. The netids may
-    include faculty members; thus, co-teaching a class is supported.
-
-    An example:
-
-    Suppose saif.students contains 'aa1bb bb2cc gflanagi efhutton zz6yy'
+    may be associated with more than one faculty sponsor.
 
     These two commands both write the result to newusers.sh:
 
@@ -111,26 +103,8 @@ addcats_help="""
 
         python addcats.py -f smehkari -i saif.students -g econ -g econ270 > newusers.sh
 
-    smehkari and gflanagi already exist, and smehkari is already a member of 'econ'.
-    This is all perfectly OK and logically consistent with the model of use on
-    both spiderweb and spydur. 
-
-    - The econ270 group will be created.
-    - All the named parties will be added to it.
-    - gflanagi will be added to econ and econ270
-    - gflanagi will be added to econ and econ270
-    - The new faculty member efhutton will be added to all the groups, and will have
-        a new account created.
-    - The student netids will will be added to the groups, have new accounts created,
-        and have a link to the shared directory belonging to smehkari, the faculty 
-        sponsor for this operation.
-
     Sourcing the file "newusers.sh" will make it all happen.     
 
-                            ******************************************
-                            ******** about the --do-it switch ********
-                            ******************************************
-    
     Regardless of the other arguments, the --do-it switch will cause the necessary
     commands to be executed as they are encountered. The execution takes place
     in a subprocess that invokes the dorunrun() function in the HPCLIB. This is
@@ -300,8 +274,13 @@ if __name__ == '__main__':
     #    sys.stderr.write('You must log in as "installer" to execute the output of this program!\n')
     parser = argparse.ArgumentParser(prog="addcats", 
         description="""
-    Create new accounts on Spydur.
-    What addcats does, addcats does best ... it add cats!
+    Create new accounts on Spydur or Spiderweb.
+    What addcats does, addcats does best ... it adds cats!
+
+        (\___/)
+       (= *.* =)
+        (  -  )
+
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=textwrap.dedent(addcats_help))
