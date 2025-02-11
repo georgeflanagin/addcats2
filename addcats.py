@@ -162,7 +162,7 @@ def addfaculty(db:sqlitedb.SQLiteDB, netid:str) -> bool:
     try:
         do_it and db.execute_SQL(SQL.newfaculty, netid)            
         for p in facultydata.partitions:
-            db.execute_SQL(SQL.facultypartition, netid, p)
+            do_it and db.execute_SQL(SQL.facultypartition, netid, p)
         foo(add_group(netid))
         foo(add_group(dollar_group))
         foo(manage(netid))
@@ -173,6 +173,10 @@ def addfaculty(db:sqlitedb.SQLiteDB, netid:str) -> bool:
         this_is_the_cluster and foo(make_shared_dir(netid))
         this_is_the_cluster and foo(chgrp_shared_dir(netid))
         this_is_the_cluster and foo(chmod_shared_dir(netid))
+
+        foo(make_mailbox(netid))
+        foo(chmod_mailbox(netid))
+        foo(chgrp_mailbox(netid))
         
         result = db.commit() if do_it else True
 
@@ -206,8 +210,7 @@ def addcats_main(myargs:argparse.Namespace) -> int:
     global do_it
 
     # Get the database open first.
-    if do_it:
-        db = sqlitedb.SQLiteDB(myargs.db)
+    db = sqlitedb.SQLiteDB(myargs.db) if do_it else None
 
     # Eliminate duplicate groups.
     myargs.group = list(set(myargs.group))
@@ -237,7 +240,7 @@ def addcats_main(myargs:argparse.Namespace) -> int:
     # create this account also.
     #####
     for f in myargs.faculty: 
-        addfaculty(db, myargs.faculty)
+        addfaculty(db, f)
 
     # Let's check to see if we need to add groups. Note that this
     # feature allows groups to be added dynamically. 
@@ -245,9 +248,17 @@ def addcats_main(myargs:argparse.Namespace) -> int:
         not linuxutils.group_exists(g) and foo(add_group(g))
         # No need to check on this; if a user is already in a group,
         # adding the user a second time will make no difference.
-        foo(add_user_to_group(myargs.faculty, g))
-        
+        for f in myargs.faculty:
+            foo(add_user_to_group(f, g))
 
+    ###
+    # If .input is not present, then the program is being run to 
+    # add faculty or groups, but not students.
+    ###
+    if not myargs.input: 
+        return os.EX_OK
+
+    ###
     # The input is either a file of netids, or it /is/ the netid,
     # and there is only one of them. This is to make it easier
     # to add only one user, which during add-drop and mid-semester,
@@ -272,8 +283,11 @@ def addcats_main(myargs:argparse.Namespace) -> int:
             
         foo(chmod_home_dir(netid))
         foo(add_user_to_group(netid, 'student'))
-        foo(add_user_to_group(netid, f'{myargs.faculty}$'))
-        this_is_the_cluster and foo(associate(netid, myargs.faculty))
+        for f in myargs.faculty:
+            foo(add_user_to_group(netid, f'{f}$'))
+            foo(associate(netid, f))
+            foo(associate_mailbox(netid, f))
+
         for g in myargs.group:
             foo(add_user_to_group(netid, g))
 
@@ -295,9 +309,10 @@ if __name__ == '__main__':
 
     parser.add_argument('--do-it', action='store_true', 
         help="""
-    Adding this switch will execute the commands \
-    as the program runs rather than creating a file \
-    of commands to be executed.""")
+    Adding this switch will execute the commands
+    as the program runs rather than creating a file
+    of commands to be executed.
+        """)
 
     parser.add_argument('--db', type=str, default="/usr/local/sw/databases/affinity.db")
     parser.add_argument('-f', '--faculty', action='append', default=[],

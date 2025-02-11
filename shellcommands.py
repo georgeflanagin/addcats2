@@ -37,6 +37,7 @@ add_user_to_group    = lambda user, group : f"""sudo /usr/local/sbin/hpcgpasswd 
 drop_user_from_group = lambda user, group : f"""sudo /usr/local/sbin/hpcgpasswd -d {user} {group}"""
 manage               = lambda user : f"""sudo /usr/local/sbin/hpcmanage {user}"""
 associate            = lambda student, faculty : f"""sudo -u {student} ln -s /home/{faculty}/shared /home/{student}/shared_{faculty}"""
+associate_mailbox    = lambda student, faculty : f"""sudo -u {student} ln -s /home/{faculty}/mailbox /home/{student}/{faculty}_mailbox"""
 make_shared_dir      = lambda faculty : f"""sudo -u {faculty} mkdir -p /home/{faculty}/shared"""
 chgrp_shared_dir     = lambda faculty : f"""sudo -u {faculty} chgrp {faculty}$ /home/{faculty}/shared"""
 chmod_shared_dir     = lambda faculty : f"""sudo -u {faculty} chmod 2770 /home/{faculty}/shared"""
