@@ -278,7 +278,7 @@ if __name__ == '__main__':
     Create new accounts on Spydur or Spiderweb.
     What addcats does, addcats does best ... it adds cats!
 
-        (\___/)
+        (\\___/)
        (= *.* =)
 
         """,
