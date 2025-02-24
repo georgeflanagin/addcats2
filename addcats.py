@@ -249,7 +249,8 @@ def addcats_main(myargs:argparse.Namespace) -> int:
         # Again, if the netid is already managed, this is not an error.
         foo(manage(netid))
         try:
-            do_it and db.execute_SQL(SQL.facultystudent, myargs.faculty, netid)
+            for f in myargs.faculty:
+                do_it and db.execute_SQL(SQL.facultystudent, f, netid)
             print(f"The student {netid} is successfully added.")
             do_it and db.commit()
         except sqlite3.IntegrityError as e:
@@ -293,7 +294,7 @@ if __name__ == '__main__':
         """)
 
     parser.add_argument('--db', type=str, default="/usr/local/sw/databases/affinity.db")
-    parser.add_argument('-f', '--faculty', action='append', default=[],
+    parser.add_argument('-f', '--faculty', action='append', type=str, default=[],
         help="Name of a faculty member.")
     parser.add_argument('-g', '--group', action='append', default=[],
         help="Name of additional groups to add to the users. Defaults to none.")
