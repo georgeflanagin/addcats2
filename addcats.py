@@ -246,6 +246,10 @@ def addcats_main(myargs:argparse.Namespace) -> int:
     # get their authorizations from faculty associations.
     for netid in netids:
 
+        if os.path.exists(f"/home/{netid}"): 
+            print(f"Skipping {netid=}. User already has an account")
+            continue
+
         # Again, if the netid is already managed, this is not an error.
         foo(manage(netid))
         try:
